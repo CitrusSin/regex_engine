@@ -1,17 +1,39 @@
 
 #include "regex.hpp"
+#include "regex_dfa.hpp"
 #include "regex_nfa.hpp"
 #include "regex_parse.hpp"
+#include <string>
 
 namespace regexs {
-    regex::regex(std::string_view sv) : atm(build_nfa(regex_tokenize(sv))) {}
+    regex::regex(std::string_view sv) : 
+        __tokens(regex_tokenize(sv)),
+        __atm(build_nfa(__tokens)),
+        __dfa(deterministic_automaton::from_nonfinite(__atm))
+    {}
 
     bool regex::match(std::string_view sv) const {
-        nonfinite_automaton::state s = atm.start_state();
+        deterministic_automaton::state s = __dfa.start_state();
         for (char c : sv) {
-            s = atm.next_state(s, c);
+            s = __dfa.next_state(s, c);
         }
         
-        return atm.is_stop_state(s);
+        return __dfa.is_stop_state(s);
+    }
+
+    std::vector<std::string> regex::tokens() const {
+        std::vector<std::string> tks(__tokens.size());
+        for (size_t i=0; i<__tokens.size(); i++) {
+            tks[i] = __tokens[i]->serialize();
+        }
+        return tks;
+    }
+
+    const nondeterministic_automaton& regex::automaton() const {
+        return __atm;
+    }
+
+    const deterministic_automaton& regex::deter_automaton() const {
+        return __dfa;
     }
 }

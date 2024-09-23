@@ -32,7 +32,7 @@ namespace regexs {
         }
 
         std::string serialize() const override {
-            return "plain_string\"" + __content + "\"";
+            return "PLAIN_STRING\"" + __content + "\"";
         }
     private:
         std::string __content;
@@ -45,10 +45,10 @@ namespace regexs {
         virtual int priority() const = 0;
         virtual int operand_count() const = 0;
         virtual char content() const = 0;
-        virtual void apply_operator(std::deque<nonfinite_automaton>& operands) = 0;
+        virtual void apply_operator(std::deque<nondeterministic_automaton>& operands) = 0;
 
         virtual std::string serialize() const override {
-            return std::string("oper\'") + content() + "\'";
+            return std::string("OPERATOR\'") + content() + "\'";
         }
 
         virtual type get_type() const override {
@@ -69,7 +69,9 @@ namespace regexs {
 
         type get_type() const override { return (__content == '(') ? LEFT_BRACKET : RIGHT_BRACKET; }
 
-        void apply_operator(std::deque<nonfinite_automaton>& operands) override {}
+        std::string serialize() const override { return (__content == '(') ? "LEFT_BRACKET" : "RIGHT_BRACKET"; }
+
+        void apply_operator(std::deque<nondeterministic_automaton>& operands) override {}
     private:
         char __content;
     };
@@ -80,7 +82,7 @@ namespace regexs {
         int operand_count() const override  { return 1; }
         char content() const override       { return '+'; }
 
-        void apply_operator(std::deque<nonfinite_automaton>& operands) override {
+        void apply_operator(std::deque<nondeterministic_automaton>& operands) override {
             operands.back().refactor_to_repetitive();
         }
     };
@@ -91,7 +93,7 @@ namespace regexs {
         int operand_count() const override  { return 1; }
         char content() const override       { return '?'; }
 
-        void apply_operator(std::deque<nonfinite_automaton>& operands) override {
+        void apply_operator(std::deque<nondeterministic_automaton>& operands) override {
             operands.back().refactor_to_skippable();
         }
     };
@@ -102,7 +104,7 @@ namespace regexs {
         int operand_count() const override  { return 1; }
         char content() const override       { return '*'; }
 
-        void apply_operator(std::deque<nonfinite_automaton>& operands) override {
+        void apply_operator(std::deque<nondeterministic_automaton>& operands) override {
             operands.back().refactor_to_repetitive();
             operands.back().refactor_to_skippable();
         }
@@ -114,9 +116,11 @@ namespace regexs {
         int operand_count() const override  { return 2; }
         char content() const override       { return 'C'; }
 
-        void apply_operator(std::deque<nonfinite_automaton>& operands) override {
-            nonfinite_automaton& r2 = operands[operands.size()-1];
-            nonfinite_automaton& r1 = operands[operands.size()-2];
+        std::string serialize() const override { return "CONNECT"; }
+
+        void apply_operator(std::deque<nondeterministic_automaton>& operands) override {
+            nondeterministic_automaton& r2 = operands[operands.size()-1];
+            nondeterministic_automaton& r1 = operands[operands.size()-2];
             r1.connect(r2);
             operands.pop_back();
         }
@@ -128,10 +132,10 @@ namespace regexs {
         int operand_count() const override  { return 2; }
         char content() const override       { return '|'; }
 
-        void apply_operator(std::deque<nonfinite_automaton>& operands) override {
-            nonfinite_automaton& r2 = operands[operands.size()-1];
-            nonfinite_automaton& r1 = operands[operands.size()-2];
-            r1 |= r2;
+        void apply_operator(std::deque<nondeterministic_automaton>& operands) override {
+            nondeterministic_automaton& r2 = operands[operands.size()-1];
+            nondeterministic_automaton& r1 = operands[operands.size()-2];
+            r1.make_origin_branch(r2);
             operands.pop_back();
         }
     };
@@ -173,7 +177,7 @@ namespace regexs {
     }
 
     std::vector<std::shared_ptr<token>> regex_tokenize(std::string_view sv);
-    nonfinite_automaton build_nfa(const std::vector<std::shared_ptr<token>>& tokens);
+    nondeterministic_automaton build_nfa(const std::vector<std::shared_ptr<token>>& tokens);
 }
 
 #endif

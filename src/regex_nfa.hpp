@@ -3,13 +3,14 @@
 
 #include <initializer_list>
 #include <vector>
+#include <string>
 #include <string_view>
 #include <map>
 #include <set>
 
 
 namespace regexs {
-    class nonfinite_automaton {
+    class nondeterministic_automaton {
     public:
         using single_state = size_t;
         
@@ -37,15 +38,17 @@ namespace regexs {
             std::set<char> character_transitions() const;
 
         private:
-            friend class nonfinite_automaton;
+            friend class nondeterministic_automaton;
 
-            const nonfinite_automaton* atm;
+            const nondeterministic_automaton* atm;
 
-            state(const nonfinite_automaton* atm) : std::set<single_state>(), atm(atm) {}
-            state(const nonfinite_automaton* atm, std::initializer_list<single_state> il) : std::set<single_state>(std::move(il)), atm(atm) {}
+            state(const nondeterministic_automaton* atm) : std::set<single_state>(), atm(atm) {}
+            state(const nondeterministic_automaton* atm, std::initializer_list<single_state> il) : std::set<single_state>(std::move(il)), atm(atm) {}
         };
 
-        nonfinite_automaton() : nodes{{.next={}, .eps_next={}}}, start_sstate(0) {}
+        nondeterministic_automaton();
+
+        inline size_t state_count() const { return nodes.size(); }
 
         single_state add_state();
         void add_jump(single_state from, char ch, single_state to);
@@ -62,14 +65,15 @@ namespace regexs {
         void set_stop_state(single_state s, bool stop = true);
         bool is_stop_state(single_state s) const;
         bool is_stop_state(const state& s) const;
-        void add_automaton(single_state from, const nonfinite_automaton& atm);
+        void add_automaton(single_state from, const nondeterministic_automaton& atm);
         void refactor_to_repetitive();
         void refactor_to_skippable();
-        void connect(const nonfinite_automaton& atm);
+        void connect(const nondeterministic_automaton& atm);
+        void make_origin_branch(const nondeterministic_automaton& m2);
 
-        nonfinite_automaton& operator|=(const nonfinite_automaton& m2);
+        std::string serialize() const;
 
-        static nonfinite_automaton string_automaton(std::string_view s);
+        static nondeterministic_automaton string_automaton(std::string_view s);
     private:
         struct state_node {
             std::multimap<char, single_state> next;
@@ -80,7 +84,7 @@ namespace regexs {
         single_state start_sstate;
         std::set<single_state> stop_sstates;
 
-        std::pair<single_state, std::set<single_state>> import_automaton(const nonfinite_automaton& atm);
+        std::pair<single_state, std::set<single_state>> import_automaton(const nondeterministic_automaton& atm);
         state state_of(std::initializer_list<single_state> sstates) const;
         void unify_stop_sstates();
     };

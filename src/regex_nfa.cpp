@@ -1,47 +1,50 @@
+#include <sstream>
 #include <stack>
 #include "regex_nfa.hpp"
 
 using namespace regexs;
 
-nonfinite_automaton::state nonfinite_automaton::state::next_state(char next) const {
+nondeterministic_automaton::nondeterministic_automaton() : nodes{{.next={}, .eps_next={}}}, start_sstate(0) {}
+
+nondeterministic_automaton::state nondeterministic_automaton::state::next_state(char next) const {
     return atm->next_state(*this, next);
 }
 
-nonfinite_automaton::state& nonfinite_automaton::state::next(char next) {
+nondeterministic_automaton::state& nondeterministic_automaton::state::next(char next) {
     return *this = atm->next_state(*this, next);
 }
 
-nonfinite_automaton::state& nonfinite_automaton::state::operator+=(const state& s2) {
+nondeterministic_automaton::state& nondeterministic_automaton::state::operator+=(const state& s2) {
     insert(s2.begin(), s2.end());
     return *this;
 }
 
-std::set<char> nonfinite_automaton::state::character_transitions() const {
+std::set<char> nondeterministic_automaton::state::character_transitions() const {
     return atm->character_transitions(*this);
 }
 
-nonfinite_automaton::single_state nonfinite_automaton::add_state() {
+nondeterministic_automaton::single_state nondeterministic_automaton::add_state() {
     nodes.push_back({.next={}, .eps_next={}});
     return nodes.size() - 1;
 }
 
-void nonfinite_automaton::add_jump(single_state from, char ch, single_state to) {
+void nondeterministic_automaton::add_jump(single_state from, char ch, single_state to) {
     nodes[from].next.insert(std::make_pair(ch, to));
 }
 
-void nonfinite_automaton::add_epsilon_jump(single_state from, single_state to) {
+void nondeterministic_automaton::add_epsilon_jump(single_state from, single_state to) {
     nodes[from].eps_next.insert(to);
 }
 
-bool nonfinite_automaton::contains_epsilon_jump(single_state from, single_state to) const {
+bool nondeterministic_automaton::contains_epsilon_jump(single_state from, single_state to) const {
     return nodes[from].eps_next.count(to) > 0;
 }
 
-nonfinite_automaton::state nonfinite_automaton::epsilon_closure(single_state s) const {
+nondeterministic_automaton::state nondeterministic_automaton::epsilon_closure(single_state s) const {
     return epsilon_closure(state_of({s}));
 }
 
-nonfinite_automaton::state nonfinite_automaton::epsilon_closure(state states) const {
+nondeterministic_automaton::state nondeterministic_automaton::epsilon_closure(state states) const {
     std::stack<single_state> search_stack;
     for (single_state s : states) {
         search_stack.push(s);
@@ -62,7 +65,7 @@ nonfinite_automaton::state nonfinite_automaton::epsilon_closure(state states) co
     return states;
 }
 
-nonfinite_automaton::state nonfinite_automaton::next_state(single_state prev, char ch) const {
+nondeterministic_automaton::state nondeterministic_automaton::next_state(single_state prev, char ch) const {
     auto iterator_begin = nodes[prev].next.find(ch);
     auto iterator_end = iterator_begin;
 
@@ -75,7 +78,7 @@ nonfinite_automaton::state nonfinite_automaton::next_state(single_state prev, ch
     return epsilon_closure(st);
 }
 
-nonfinite_automaton::state nonfinite_automaton::next_state(const state& prev, char ch) const {
+nondeterministic_automaton::state nondeterministic_automaton::next_state(const state& prev, char ch) const {
     state s = state_of({});
     for (single_state ss : prev) {
         auto it = nodes[ss].next.find(ch);
@@ -86,7 +89,7 @@ nonfinite_automaton::state nonfinite_automaton::next_state(const state& prev, ch
     return epsilon_closure(s);
 }
 
-std::set<char> nonfinite_automaton::character_transitions(single_state sstate) const {
+std::set<char> nondeterministic_automaton::character_transitions(single_state sstate) const {
     std::set<char> transitions;
 
     for (auto& [ch, next] : nodes[sstate].next) {
@@ -96,7 +99,7 @@ std::set<char> nonfinite_automaton::character_transitions(single_state sstate) c
     return transitions;
 }
 
-std::set<char> nonfinite_automaton::character_transitions(const state& state) const {
+std::set<char> nondeterministic_automaton::character_transitions(const state& state) const {
     std::set<char> transitions;
 
     for (single_state sstate : state) {
@@ -108,15 +111,15 @@ std::set<char> nonfinite_automaton::character_transitions(const state& state) co
     return transitions;
 }
 
-nonfinite_automaton::state nonfinite_automaton::start_state() const {
+nondeterministic_automaton::state nondeterministic_automaton::start_state() const {
     return epsilon_closure(start_sstate);
 }
 
-nonfinite_automaton::single_state nonfinite_automaton::start_single_state() const {
+nondeterministic_automaton::single_state nondeterministic_automaton::start_single_state() const {
     return start_sstate;
 }
 
-void nonfinite_automaton::set_stop_state(single_state s, bool stop) {
+void nondeterministic_automaton::set_stop_state(single_state s, bool stop) {
     if (stop) {
         stop_sstates.insert(s);
     } else {
@@ -124,25 +127,25 @@ void nonfinite_automaton::set_stop_state(single_state s, bool stop) {
     }
 }
 
-bool nonfinite_automaton::is_stop_state(single_state s) const {
+bool nondeterministic_automaton::is_stop_state(single_state s) const {
     return stop_sstates.count(s);
 }
 
-bool nonfinite_automaton::is_stop_state(const state& s) const {
+bool nondeterministic_automaton::is_stop_state(const state& s) const {
     for (auto ss : s) {
         if (is_stop_state(ss)) return true;
     }
     return false;
 }
 
-void nonfinite_automaton::add_automaton(single_state from, const nonfinite_automaton& atm) {
+void nondeterministic_automaton::add_automaton(single_state from, const nondeterministic_automaton& atm) {
     auto [start, stop] = import_automaton(atm);
     
     add_epsilon_jump(from, start);
     stop_sstates.insert(stop.begin(), stop.end());
 }
 
-void nonfinite_automaton::refactor_to_repetitive() {
+void nondeterministic_automaton::refactor_to_repetitive() {
     unify_stop_sstates();
 
     if (stop_sstates.size() == 0) {
@@ -156,7 +159,7 @@ void nonfinite_automaton::refactor_to_repetitive() {
     add_epsilon_jump(*stop_sstates.begin(), start_sstate);
 }
 
-void nonfinite_automaton::refactor_to_skippable() {
+void nondeterministic_automaton::refactor_to_skippable() {
     unify_stop_sstates();
 
     if (stop_sstates.size() == 0) {
@@ -170,7 +173,7 @@ void nonfinite_automaton::refactor_to_skippable() {
     add_epsilon_jump(start_sstate, *stop_sstates.begin());
 }
 
-void nonfinite_automaton::connect(const nonfinite_automaton& atm) {
+void nondeterministic_automaton::connect(const nondeterministic_automaton& atm) {
     unify_stop_sstates();
 
     single_state sstate = *stop_sstates.begin();
@@ -179,14 +182,78 @@ void nonfinite_automaton::connect(const nonfinite_automaton& atm) {
     add_automaton(sstate, atm);
 }
 
-nonfinite_automaton& nonfinite_automaton::operator|=(const nonfinite_automaton& m2) {
+void nondeterministic_automaton::make_origin_branch(const nondeterministic_automaton& m2) {
     add_automaton(start_sstate, m2);
-    return *this;
 }
 
+template <typename T>
+static std::string serialize_set(const std::set<T>& val) {
+    if (val.size() == 0) {
+        return "{}";
+    }
 
-std::pair<nonfinite_automaton::single_state, std::set<nonfinite_automaton::single_state>>
-nonfinite_automaton::import_automaton(const nonfinite_automaton& atm) {
+    std::stringstream seri_stream;
+    if (val.size() == 1) {
+        seri_stream << *val.begin();
+        return seri_stream.str();
+    }
+
+    seri_stream << '{';
+
+    bool mark = false;
+    for (auto v : val) {
+        if (mark) seri_stream << ',';
+        seri_stream << v;
+        mark = true;
+    }
+
+    seri_stream << '}';
+
+    return seri_stream.str();
+}
+
+std::string nondeterministic_automaton::serialize() const {
+    std::stringstream seri_stream;
+    for (single_state ss = 0; ss < state_count(); ss++) {
+        seri_stream << "STATE" << ss << ": {";
+
+        bool mark1 = false;
+        if (!nodes[ss].eps_next.empty()) {
+            seri_stream << "EPS -> " << serialize_set(nodes[ss].eps_next);
+            mark1 = true;
+        }
+
+        auto& nextmap = nodes[ss].next;
+
+        char last_ch = '\0';
+        std::set<single_state> last_set;
+        for (auto it = nextmap.begin(); it != nextmap.end(); it++) {
+            if (last_ch == '\0') last_ch = it->first;
+            if (last_ch != it->first) {
+                if (mark1) seri_stream << ',';
+                mark1 = true;
+                seri_stream << last_ch << " -> " << serialize_set(last_set);
+                last_set.clear();
+            }
+            last_set.insert(it->second);
+        }
+        if (!last_set.empty()) {
+            if (mark1) seri_stream << ',';
+            mark1 = true;
+            seri_stream << last_ch << " -> " << serialize_set(last_set);
+            last_set.clear();
+        }
+
+        seri_stream << "}\n";
+    }
+
+    seri_stream << "FINISH_STATES = " << serialize_set(stop_sstates) << "\n";
+    return seri_stream.str();
+}
+
+// PRIVATE FUNCTIONS
+std::pair<nondeterministic_automaton::single_state, std::set<nondeterministic_automaton::single_state>>
+nondeterministic_automaton::import_automaton(const nondeterministic_automaton& atm) {
     single_state bias = nodes.size();
     for (single_state src = 0; src < atm.nodes.size(); src++) {
         state_node next_node;
@@ -209,11 +276,11 @@ nonfinite_automaton::import_automaton(const nonfinite_automaton& atm) {
     return make_pair(start_sstate, std::move(stop_sstates));
 }
 
-nonfinite_automaton::state nonfinite_automaton::state_of(std::initializer_list<single_state> sstates) const {
+nondeterministic_automaton::state nondeterministic_automaton::state_of(std::initializer_list<single_state> sstates) const {
     return state(this, sstates);
 }
 
-void nonfinite_automaton::unify_stop_sstates() {
+void nondeterministic_automaton::unify_stop_sstates() {
     if (stop_sstates.size() <= 1) return;
 
     single_state new_stop = add_state();
@@ -224,8 +291,8 @@ void nonfinite_automaton::unify_stop_sstates() {
     stop_sstates = {new_stop};
 }
 
-nonfinite_automaton nonfinite_automaton::string_automaton(std::string_view s) {
-    nonfinite_automaton atm;
+nondeterministic_automaton nondeterministic_automaton::string_automaton(std::string_view s) {
+    nondeterministic_automaton atm;
 
     auto state = atm.start_single_state();
     for (char c : s) {

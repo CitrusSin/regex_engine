@@ -1,8 +1,8 @@
 CC := g++
 
-OBJS = obj/main.o obj/regex.o obj/regex_nfa.o obj/regex_parse.o
+OBJS = obj/main.o obj/regex.o obj/regex_nfa.o obj/regex_parse.o obj/regex_dfa.o
 
-CFLAGS = -Wall
+CFLAGS = -Wall -g
 LDFLAGS = 
 
 mygrep: $(OBJS)

@@ -51,14 +51,14 @@ namespace regexs {
         return tokens;
     }
 
-    nonfinite_automaton build_nfa(const std::vector<std::shared_ptr<token>>& tokens) {
-        std::deque<nonfinite_automaton> operands;
+    nondeterministic_automaton build_nfa(const std::vector<std::shared_ptr<token>>& tokens) {
+        std::deque<nondeterministic_automaton> operands;
         std::deque<std::shared_ptr<oper>> opers;
 
         for (const std::shared_ptr<token>& tk : tokens) {
             switch (tk->get_type()) {
             case token::STRING:
-                operands.push_back(nonfinite_automaton::string_automaton(dynamic_cast<plain_string&>(*tk).content()));
+                operands.push_back(nondeterministic_automaton::string_automaton(dynamic_cast<plain_string&>(*tk).content()));
                 break;
             case token::OPERATOR:
                 {
