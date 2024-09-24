@@ -25,6 +25,10 @@ namespace regexs {
         void set_stop_state(state s, bool stop = true);
         bool is_stop_state(state s) const;
 
+        void add_state_mark(state s, int mark);
+        void remove_state_mark(state s, int mark);
+        const std::set<int>& state_mark(state s) const;
+
         std::pair<state, std::set<state>> import_automaton(const deterministic_automaton& atm);
 
         void simplify();
@@ -32,6 +36,7 @@ namespace regexs {
         std::string serialize() const;
     private:
         std::vector<std::map<char, state>> state_map;
+        std::vector<std::set<int>> state_marks;
         state __start_state;
         std::set<state> __end_states;
     };

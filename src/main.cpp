@@ -1,28 +1,51 @@
-#include <cstdio>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include "regex.hpp"
+#include "regex_dfa.hpp"
+#include "regex_nfa.hpp"
 
 using namespace std;
 using regexs::regex;
+using namespace regexs::literal;
+
+template <typename T>
+static string serialize_set(const set<T>& s) {
+    stringstream ss;
+    ss << '{';
+    bool fsm = true;
+    for (auto& val : s) {
+        if (!fsm) ss << ", ";
+        fsm = false;
+        ss << val;
+    }
+    ss << '}';
+    return ss.str();
+}
 
 int main(int argc, char **argv) {
-    string regex_str;
+    size_t n;
+    cout << "输入正则表达式数量：";
+    cin >> n;
+    while (cin.peek() != '\n') cin.get();
+    cin.get();
 
-    cout << "输入正则表达式：";
-    getline(cin, regex_str);
+    regexs::nondeterministic_automaton nfa;
 
-    regex reg(regex_str);
+    for (size_t i=0; i<n; i++) {
+        string regex_str;
+        cout << "输入" << i << "号正则表达式：";
+        getline(cin, regex_str);
 
-    auto tokens = reg.tokens();
-    cout << "分词结果：\n";
-    for (auto& t : tokens) {
-        cout << t << '\n';
+        auto automaton = regex(regex_str).automaton();
+        automaton.add_end_state_mark(i);
+        nfa.add_automaton(nfa.start_single_state(), automaton);
     }
 
-    cout << "\n自动机：\n" << reg.automaton().serialize() << "\n";
-    cout << "确定自动机：\n" << reg.deter_automaton().serialize() << "\n";
+    regexs::deterministic_automaton dfa = nfa.to_deterministic();
+    
+    cout << "确定自动机：\n" << dfa.serialize() << "\n";
 
     string input_str;
     while (1) {
@@ -33,9 +56,17 @@ int main(int argc, char **argv) {
             break;
         }
 
-        bool ans = reg.match(input_str);
+        regexs::deterministic_automaton::state st = dfa.start_state();
+        for (char c : input_str) {
+            st = dfa.next_state(st, c);
+        }
 
-        cout << "匹配结果：" << (ans ? "匹配" : "不匹配") << '\n';
+        if (dfa.is_stop_state(st)) {
+            set<int> mark = dfa.state_mark(st);
+            cout << "匹配结果：" << serialize_set(mark) << '\n';
+        } else {
+            cout << "无匹配项\n";
+        }
     }
 
     return 0;

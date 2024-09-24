@@ -23,6 +23,15 @@ std::set<char> nondeterministic_automaton::state::character_transitions() const 
     return atm->character_transitions(*this);
 }
 
+std::set<int> nondeterministic_automaton::state::state_marks() const {
+    std::set<int> marks;
+    for (single_state ss : *this) {
+        const std::set<int>& sms = atm->state_marks(ss);
+        marks.insert(sms.begin(), sms.end());
+    }
+    return marks;
+}
+
 nondeterministic_automaton::single_state nondeterministic_automaton::add_state() {
     nodes.push_back({.next={}, .eps_next={}});
     return nodes.size() - 1;
@@ -138,6 +147,28 @@ bool nondeterministic_automaton::is_stop_state(const state& s) const {
     return false;
 }
 
+void nondeterministic_automaton::add_state_mark(single_state s, int mark) {
+    nodes[s].marks.insert(mark);
+}
+
+void nondeterministic_automaton::remove_state_mark(single_state s, int mark) {
+    nodes[s].marks.erase(mark);
+}
+
+void nondeterministic_automaton::set_state_marks(single_state s, const std::set<int>& marks) {
+    nodes[s].marks = marks;
+}
+
+const std::set<int>& nondeterministic_automaton::state_marks(single_state s) const {
+    return nodes[s].marks;
+}
+
+void nondeterministic_automaton::add_end_state_mark(int mark) {
+    for (single_state ss : stop_sstates) {
+        add_state_mark(ss, mark);
+    }
+}
+
 void nondeterministic_automaton::add_automaton(single_state from, const nondeterministic_automaton& atm) {
     auto [start, stop] = import_automaton(atm);
     
@@ -212,8 +243,8 @@ static std::string serialize_set(const std::set<T>& val) {
     return seri_stream.str();
 }
 
-deterministic_automaton nondeterministic_automaton::to_deterministic() {
-    nondeterministic_automaton &nfa = *this;
+deterministic_automaton nondeterministic_automaton::to_deterministic() const {
+    const nondeterministic_automaton &nfa = *this;
 
     deterministic_automaton atm;
 
@@ -243,6 +274,13 @@ deterministic_automaton nondeterministic_automaton::to_deterministic() {
         }
 
         state_queue.pop_front();
+    }
+
+    // Pass state marks marked by other programs
+    for (auto& [nfa_state, dfa_state] : state_translate) {
+        for (int mark : nfa_state.state_marks()) {
+            atm.add_state_mark(dfa_state, mark);
+        }
     }
 
     atm.simplify();
@@ -302,6 +340,8 @@ nondeterministic_automaton::import_automaton(const nondeterministic_automaton& a
         for (auto st : atm.nodes[src].eps_next) {
             next_node.eps_next.emplace(st + bias);
         }
+        // Marks remain unchanged
+        next_node.marks = atm.nodes[src].marks;
 
         nodes.push_back(std::move(next_node));
     }

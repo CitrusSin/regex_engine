@@ -1,5 +1,6 @@
 
 #include "regex_dfa.hpp"
+#include <map>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -7,10 +8,11 @@
 using namespace regexs;
 using state = deterministic_automaton::state;
 
-deterministic_automaton::deterministic_automaton() : state_map(1), __start_state(0), __end_states() {}
+deterministic_automaton::deterministic_automaton() : state_map(1), state_marks(1), __start_state(0), __end_states() {}
 
 state deterministic_automaton::add_state() {
     state_map.push_back({});
+    state_marks.push_back({});
     return state_map.size() - 1;
 }
 
@@ -40,9 +42,22 @@ bool deterministic_automaton::is_stop_state(state s) const {
     return __end_states.count(s) > 0;
 }
 
+void deterministic_automaton::add_state_mark(state s, int mark) {
+    state_marks[s].insert(mark);
+}
+
+void deterministic_automaton::remove_state_mark(state s, int mark) {
+    state_marks[s].erase(mark);
+}
+
+const std::set<int>& deterministic_automaton::state_mark(state s) const {
+    return state_marks[s];
+}
+
 std::pair<state, std::set<state>> deterministic_automaton::import_automaton(const deterministic_automaton& atm) {
     size_t bias = state_count();
     state_map.insert(state_map.end(), atm.state_map.begin(), atm.state_map.end());
+    state_marks.insert(state_marks.end(), atm.state_marks.begin(), atm.state_marks.end());
 
     for (size_t i = bias; i < state_map.size(); i++) {
         for (auto& [ch, target] : state_map[i]) {
@@ -75,16 +90,17 @@ void deterministic_automaton::simplify() {
         std::vector<size_t> values;
     };
 
-    dsu equi(state_count());
-    state first_end = REJECT;
+    dsu equivalence(state_count());
+    std::map<std::set<int>, state> mark_states;
+
     for (state s = 0; s < state_count(); s++) {
         if (is_stop_state(s)) {
-            if (first_end == REJECT) {
-                first_end = s;
-                equi.reset(s);
+            equivalence.reset(s);
+            std::set<int> mark = state_mark(s);
+            if (mark_states.count(mark)) {
+                equivalence.link(s, mark_states[mark]);
             } else {
-                equi.reset(s);
-                equi.link(s, first_end);
+                mark_states[state_mark(s)] = s;
             }
         }
     }
@@ -94,7 +110,7 @@ void deterministic_automaton::simplify() {
 
         for (auto [k, v] : table1) {
             if (!table2.count(k)) return false;
-            if (equi.root(v) != equi.root(table2.at(k))) {
+            if (equivalence.root(v) != equivalence.root(table2.at(k))) {
                 return false;
             }
         }
@@ -102,49 +118,51 @@ void deterministic_automaton::simplify() {
         return true;
     };
 
-    bool has_changes = true;
-    while (has_changes) {
+    bool has_changes;
+    do {
         has_changes = false;
         for (state s0 = 0; s0 < state_count(); s0++) {
-            state s1 = equi.root(s0);
+            state s1 = equivalence.root(s0);
             if (s0 != s1 && !skiptable_equals(state_map[s0], state_map[s1])) {
-                equi.reset(s0);
+                equivalence.reset(s0);
                 has_changes = true;
             }
         }
-    }
+    } while (has_changes);
 
     std::vector<state> state_mappings(state_count(), REJECT);
     for (state s = 0, sc = 0; s < state_count(); s++) {
-        if (equi.root(s) == s) {
+        if (equivalence.root(s) == s) {
             state_mappings[s] = sc++;
         }
     }
 
     std::vector<state> remove_states;
     for (state s = 0; s < state_count(); s++) {
-        if (equi.root(s) != s) {
+        if (equivalence.root(s) != s) {
             remove_states.push_back(s);
             continue;
         }
 
         auto& smap = state_map[s];
         for (auto& [ch, st] : smap) {
-            smap[ch] = state_mappings[equi.root(st)];
+            smap[ch] = state_mappings[equivalence.root(st)];
         }
     }
 
     size_t bias = 0;
     for (state s : remove_states) {
-        state_map.erase(state_map.begin() + s - (bias++));
+        state_map.erase(state_map.begin() + s - bias);
+        state_marks.erase(state_marks.begin() + s - bias);
+        bias++;
     }
 
     std::set<state> new_stop_states;
     for (state s : __end_states) {
-        new_stop_states.insert(state_mappings[equi.root(s)]);
+        new_stop_states.insert(state_mappings[equivalence.root(s)]);
     }
     __end_states = new_stop_states;
-    __start_state = state_mappings[equi.root(__start_state)];
+    __start_state = state_mappings[equivalence.root(__start_state)];
 }
 
 std::string deterministic_automaton::serialize() const {

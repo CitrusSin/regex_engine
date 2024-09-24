@@ -37,6 +37,7 @@ namespace regexs {
 #undef __EXT_CMP
 
             std::set<char> character_transitions() const;
+            std::set<int> state_marks() const;
 
         private:
             friend class nondeterministic_automaton;
@@ -66,6 +67,13 @@ namespace regexs {
         void set_stop_state(single_state s, bool stop = true);
         bool is_stop_state(single_state s) const;
         bool is_stop_state(const state& s) const;
+
+        void add_state_mark(single_state s, int mark);
+        void remove_state_mark(single_state s, int mark);
+        void set_state_marks(single_state s, const std::set<int>& marks);
+        const std::set<int>& state_marks(single_state s) const;
+        void add_end_state_mark(int mark);
+
         void add_automaton(single_state from, const nondeterministic_automaton& atm);
         void refactor_to_repetitive();
         void refactor_to_skippable();
@@ -74,11 +82,12 @@ namespace regexs {
 
         std::string serialize() const;
 
-        deterministic_automaton to_deterministic();
+        deterministic_automaton to_deterministic() const;
     private:
         struct state_node {
             std::multimap<char, single_state> next;
             std::set<single_state> eps_next;
+            std::set<int> marks;
         };
 
         std::vector<state_node> nodes;
