@@ -13,7 +13,7 @@ namespace regexs {
         virtual ~token() {}
 
         enum type {
-            STRING, OPERATOR, LEFT_BRACKET, RIGHT_BRACKET
+            STRING, CHAR_SELECTOR, OPERATOR, LEFT_BRACKET, RIGHT_BRACKET
         };
         virtual type get_type() const = 0;
         virtual std::string serialize() const = 0;
@@ -140,6 +140,18 @@ namespace regexs {
         }
     };
 
+    class char_selector : public token {
+    public:
+        explicit char_selector(std::string_view sv) : __content(sv.substr(1, sv.size() - 2)) {}
+
+        virtual type get_type() const override { return CHAR_SELECTOR; }
+        virtual std::string serialize() const override { return "SELECTOR[" + __content + "]"; }
+
+        std::string content() const { return __content; }
+    private:
+        std::string __content;
+    };
+
     constexpr inline bool oper::is_operator(char c) {
         switch (c) {
         case '(':
@@ -178,6 +190,8 @@ namespace regexs {
 
     std::vector<std::shared_ptr<token>> regex_tokenize(std::string_view sv);
     nondeterministic_automaton build_nfa(const std::vector<std::shared_ptr<token>>& tokens);
+    nondeterministic_automaton string_automaton(std::string_view s);
+    nondeterministic_automaton selector_automaton(const char_selector& selector);
 }
 
 #endif

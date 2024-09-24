@@ -234,6 +234,7 @@ std::string nondeterministic_automaton::serialize() const {
                 mark1 = true;
                 seri_stream << last_ch << " -> " << serialize_set(last_set);
                 last_set.clear();
+                last_ch = it->first;
             }
             last_set.insert(it->second);
         }
@@ -289,18 +290,4 @@ void nondeterministic_automaton::unify_stop_sstates() {
     }
 
     stop_sstates = {new_stop};
-}
-
-nondeterministic_automaton nondeterministic_automaton::string_automaton(std::string_view s) {
-    nondeterministic_automaton atm;
-
-    auto state = atm.start_single_state();
-    for (char c : s) {
-        auto next_state = atm.add_state();
-        atm.add_jump(state, c, next_state);
-        state = next_state;
-    }
-    atm.set_stop_state(state);
-
-    return atm;
 }
