@@ -11,7 +11,7 @@ namespace regexs {
     class deterministic_automaton {
     public:
         using state = size_t;
-        static const state REJECT = std::numeric_limits<size_t>::max();
+        const state REJECT = std::numeric_limits<size_t>::max();
 
         deterministic_automaton();
 
@@ -23,6 +23,8 @@ namespace regexs {
         state next_state(state from, char ch) const;
         void set_stop_state(state s, bool stop = true);
         bool is_stop_state(state s) const;
+
+        void simplify();
 
         std::string serialize() const;
 
