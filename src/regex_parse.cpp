@@ -1,6 +1,5 @@
 #include "regex_parse.hpp"
 #include "regex_nfa.hpp"
-#include <limits>
 #include <array>
 #include <memory>
 #include <stdexcept>

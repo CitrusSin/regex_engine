@@ -9,7 +9,7 @@ namespace regexs {
     regex::regex(std::string_view sv) : 
         __tokens(regex_tokenize(sv)),
         __atm(build_nfa(__tokens)),
-        __dfa(deterministic_automaton::from_nonfinite(__atm))
+        __dfa(__atm.to_deterministic())
     {}
 
     bool regex::match(std::string_view sv) const {

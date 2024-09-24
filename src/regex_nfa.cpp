@@ -212,6 +212,44 @@ static std::string serialize_set(const std::set<T>& val) {
     return seri_stream.str();
 }
 
+deterministic_automaton nondeterministic_automaton::to_deterministic() {
+    nondeterministic_automaton &nfa = *this;
+
+    deterministic_automaton atm;
+
+    nondeterministic_automaton::state nfa_state = nfa.start_state();
+
+    std::map<nondeterministic_automaton::state, deterministic_automaton::state> state_translate;
+    state_translate[nfa_state] = atm.start_state();
+
+    std::deque<nondeterministic_automaton::state> state_queue;
+    state_queue.push_back(nfa_state);
+
+    while (!state_queue.empty()) {
+        nondeterministic_automaton::state& st = state_queue.front();
+        deterministic_automaton::state fst = state_translate[st];
+
+        for (char ch : st.character_transitions()) {
+            nondeterministic_automaton::state next_st = st.next_state(ch);
+            deterministic_automaton::state next_fst;
+            if (!state_translate.count(next_st)) {
+                next_fst = state_translate[next_st] = atm.add_state();
+                atm.set_stop_state(next_fst, nfa.is_stop_state(next_st));
+                state_queue.push_back(next_st);
+            } else {
+                next_fst = state_translate[next_st];
+            }
+            atm.set_jump(fst, ch, next_fst);
+        }
+
+        state_queue.pop_front();
+    }
+
+    atm.simplify();
+
+    return atm;
+}
+
 std::string nondeterministic_automaton::serialize() const {
     std::stringstream seri_stream;
     for (single_state ss = 0; ss < state_count(); ss++) {

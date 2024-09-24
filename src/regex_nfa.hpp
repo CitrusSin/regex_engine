@@ -4,9 +4,10 @@
 #include <initializer_list>
 #include <vector>
 #include <string>
-#include <string_view>
 #include <map>
 #include <set>
+
+#include "regex_dfa.hpp"
 
 
 namespace regexs {
@@ -72,6 +73,8 @@ namespace regexs {
         void make_origin_branch(const nondeterministic_automaton& m2);
 
         std::string serialize() const;
+
+        deterministic_automaton to_deterministic();
     private:
         struct state_node {
             std::multimap<char, single_state> next;

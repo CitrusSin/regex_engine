@@ -1,9 +1,10 @@
 #ifndef REGEX_DFA_HPP
 #define REGEX_DFA_HPP
 
-#include "regex_nfa.hpp"
 #include <string>
 #include <limits>
+#include <set>
+#include <utility>
 #include <vector>
 #include <map>
 
@@ -24,11 +25,11 @@ namespace regexs {
         void set_stop_state(state s, bool stop = true);
         bool is_stop_state(state s) const;
 
+        std::pair<state, std::set<state>> import_automaton(const deterministic_automaton& atm);
+
         void simplify();
 
         std::string serialize() const;
-
-        static deterministic_automaton from_nonfinite(const nondeterministic_automaton& nfa);
     private:
         std::vector<std::map<char, state>> state_map;
         state __start_state;

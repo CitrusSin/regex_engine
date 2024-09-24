@@ -1,20 +1,20 @@
 
 #include "regex_dfa.hpp"
-#include "regex_nfa.hpp"
-#include <deque>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 using namespace regexs;
+using state = deterministic_automaton::state;
 
 deterministic_automaton::deterministic_automaton() : state_map(1), __start_state(0), __end_states() {}
 
-deterministic_automaton::state deterministic_automaton::add_state() {
+state deterministic_automaton::add_state() {
     state_map.push_back({});
     return state_map.size() - 1;
 }
 
-deterministic_automaton::state deterministic_automaton::start_state() const {
+state deterministic_automaton::start_state() const {
     return __start_state;
 }
 
@@ -22,7 +22,7 @@ void deterministic_automaton::set_jump(state from, char ch, state to) {
     state_map[from][ch] = to;
 }
 
-deterministic_automaton::state deterministic_automaton::next_state(state from, char ch) const {
+state deterministic_automaton::next_state(state from, char ch) const {
     if (from == REJECT) return REJECT;
     if (state_map[from].count(ch)) return state_map[from].at(ch);
     return REJECT;
@@ -39,6 +39,26 @@ void deterministic_automaton::set_stop_state(state s, bool stop) {
 bool deterministic_automaton::is_stop_state(state s) const {
     return __end_states.count(s) > 0;
 }
+
+std::pair<state, std::set<state>> deterministic_automaton::import_automaton(const deterministic_automaton& atm) {
+    size_t bias = state_count();
+    state_map.insert(state_map.end(), atm.state_map.begin(), atm.state_map.end());
+
+    for (size_t i = bias; i < state_map.size(); i++) {
+        for (auto& [ch, target] : state_map[i]) {
+            target += bias;
+        }
+    }
+
+    state start_state = atm.__start_state + bias;
+    std::set<state> stop_states;
+    for (state s : atm.__end_states) {
+        stop_states.insert(s + bias);
+    }
+    return std::make_pair(start_state, stop_states);
+}
+
+
 
 void deterministic_automaton::simplify() {
     class dsu {
@@ -148,38 +168,3 @@ std::string deterministic_automaton::serialize() const {
     return seri_stream.str();
 }
 
-deterministic_automaton deterministic_automaton::from_nonfinite(const nondeterministic_automaton& nfa) {
-    deterministic_automaton atm;
-
-    nondeterministic_automaton::state nfa_state = nfa.start_state();
-
-    std::map<nondeterministic_automaton::state, deterministic_automaton::state> state_translate;
-    state_translate[nfa_state] = atm.start_state();
-
-    std::deque<nondeterministic_automaton::state> state_queue;
-    state_queue.push_back(nfa_state);
-
-    while (!state_queue.empty()) {
-        nondeterministic_automaton::state& st = state_queue.front();
-        deterministic_automaton::state fst = state_translate[st];
-
-        for (char ch : st.character_transitions()) {
-            nondeterministic_automaton::state next_st = st.next_state(ch);
-            deterministic_automaton::state next_fst;
-            if (!state_translate.count(next_st)) {
-                next_fst = state_translate[next_st] = atm.add_state();
-                atm.set_stop_state(next_fst, nfa.is_stop_state(next_st));
-                state_queue.push_back(next_st);
-            } else {
-                next_fst = state_translate[next_st];
-            }
-            atm.set_jump(fst, ch, next_fst);
-        }
-
-        state_queue.pop_front();
-    }
-
-    atm.simplify();
-
-    return atm;
-}
